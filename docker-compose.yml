@@ -62,5 +62,28 @@ services:
       api2:
         condition: service_healthy
 
+  rabbitmq:
+    build: ./rabbitmq
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"    # Porta de mensageria AMQP
+      - "15672:15672"  # Painel Web do RabbitMQ
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  consumer:
+    build: ./consumer
+    container_name: worker_consumer
+    restart: always
+    environment:
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   mongo_data:
