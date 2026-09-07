@@ -16,6 +16,21 @@ services:
       retries: 5
       start_period: 10s
 
+  rabbitmq:
+    build: ./RabbitMQ
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+
+
   api1:
     build: ./app
     container_name: api_jogos_1
@@ -23,8 +38,11 @@ services:
     environment:
       MONGO_URI: mongodb://mongodb:27017
       DATABASE_NAME: jogos_db
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       mongodb:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
@@ -40,8 +58,11 @@ services:
     environment:
       MONGO_URI: mongodb://mongodb:27017
       DATABASE_NAME: jogos_db
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       mongodb:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
@@ -49,6 +70,16 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  consumer:
+    build: ./Consumer
+    container_name: worker_consumer
+    restart: always
+    environment:
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   gateway:
     build: ./gateway
@@ -62,28 +93,6 @@ services:
       api2:
         condition: service_healthy
 
-  rabbitmq:
-    build: ./rabbitmq
-    container_name: rabbitmq
-    restart: always
-    ports:
-      - "5672:5672"    # Porta de mensageria AMQP
-      - "15672:15672"  # Painel Web do RabbitMQ
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  consumer:
-    build: ./consumer
-    container_name: worker_consumer
-    restart: always
-    environment:
-      RABBITMQ_HOST: rabbitmq
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-
 volumes:
+
   mongo_data:
