@@ -255,6 +255,8 @@ Criamos uma suite completa de testes em `tests/test_messaging.py` que valida a m
 
 **Como executar:**
 
+pip install pika==1.3.2 requests pytest
+
 ```bash
 pytest -v tests/test_messaging.py
 ```

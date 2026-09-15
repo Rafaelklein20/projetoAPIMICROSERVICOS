@@ -18,8 +18,9 @@ if ROOT_DIR not in sys.path:
 # Para testes rodando na máquina host, RabbitMQ roda em localhost
 os.environ.setdefault("RABBITMQ_HOST", "localhost")
 
-GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost")
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:8080")
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost:8080" 
+"")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
 MGMT_API_URL = os.getenv("MGMT_API_URL", "http://localhost:15672/api")
 
@@ -143,6 +144,8 @@ def test_fluxo_completo_api_mensageria_e_consumer():
     status_post, dados_criado = requisicao_http(f"{GATEWAY_URL}/jogos/", metodo="POST", dados=payload_criar)
     assert status_post == 201, f"Falha ao criar jogo na API: {dados_criado}"
     jogo_id = dados_criado["id"]
+
+    time.sleep(1.5)
 
     # 2. ATUALIZAR JOGO (PUT)
     payload_atualizar = {"preco": 99.90}

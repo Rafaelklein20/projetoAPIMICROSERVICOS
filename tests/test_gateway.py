@@ -4,7 +4,7 @@ import urllib.request
 import urllib.error
 from collections import defaultdict
 
-BASE_URL = "http://localhost"
+BASE_URL = "http://localhost:8080"
 
 def pedir_quantidade(mensagem: str, padrao: int = 30) -> int:
     """
