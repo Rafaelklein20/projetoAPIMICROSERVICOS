@@ -108,8 +108,8 @@ docker compose down
 
 ### Enderecos dos Servicos:
 
-- **API Gateway (Nginx):** `http://localhost` (Porta 80)
-- **Documentacao Swagger UI:** `http://localhost/docs`
+- **API Gateway (Nginx):** `http://localhost` 
+- **Documentacao Swagger UI:** `http://localhost:8080/docs`
 - **Painel de Gestao RabbitMQ:** `http://localhost:15672` (login: `guest`, senha: `guest`)
 - **Porta AMQP RabbitMQ:** `localhost:5672`
 - **MongoDB:** `localhost:27017`
