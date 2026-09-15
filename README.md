@@ -1,14 +1,22 @@
 # API Microservicos - Catalogo de Jogos
 
-Microsservico RESTful para gerenciamento de catalogo de jogos construido com **FastAPI**, **MongoDB** e **Nginx** (API Gateway com **Load Balancer** e **Rate Limiting**), orquestrado via **Docker Compose**.
+Microsservico RESTful para gerenciamento de catalogo de jogos construido com **FastAPI**, **MongoDB**, **RabbitMQ** (Mensageria assíncrona com 2 filas) e **Nginx** (API Gateway com **Load Balancer** e **Rate Limiting**), orquestrado via **Docker Compose**.
 
 ```text
 [ Cliente / Navegador ]
           │
           ▼ (Porta 80 / HTTP)
 [ API Gateway (Nginx) ]
-  ├─── (Load Balancer & Rate Limit) ───► [ Instancia 1 (api1:8000) ] ───► [ MongoDB:27017 ]
-  └─── (Load Balancer & Rate Limit) ───► [ Instancia 2 (api2:8000) ] ───► [ MongoDB:27017 ]
+  ├─── (Load Balancer & Rate Limit) ───► [ Instancia 1 (api1:8000) ] ──┬──► [ MongoDB:27017 ]
+  └─── (Load Balancer & Rate Limit) ───► [ Instancia 2 (api2:8000) ] ──┤
+                                                                       └──► [ RabbitMQ:5672 ]
+                                                                                   │
+                                                                   ┌───────────────┴───────────────┐
+                                                                   ▼                               ▼
+                                                        [ Fila: fila_auditoria ]       [ Fila: fila_notificacoes ]
+                                                                   └───────────────┬───────────────┘
+                                                                                   ▼
+                                                                       [ Consumer / Worker ]
 ```
 
 ---
@@ -24,6 +32,7 @@ projetoAPIMICROSERVICOS/
 │   ├── schemas.py            # Validacoes e serializacao (Pydantic)
 │   ├── errors.py             # Excecoes customizadas
 │   ├── error_handlers.py     # Tratamento global de erros da API
+│   ├── producer.py           # Produtor de mensagens assincronas (RabbitMQ)
 │   ├── requirements.txt      # Dependencias Python da aplicacao
 │   ├── dockerfile            # Imagem Docker da API
 │   └── main.py               # Ponto de entrada da aplicacao
@@ -32,6 +41,12 @@ projetoAPIMICROSERVICOS/
 │   └── nginx.conf            # Proxy reverso, Rate Limit e Load Balancer
 ├── mongodb/                  # Banco de dados
 │   └── dockerfile            # Imagem do MongoDB 7.0
+├── rabbitmq/                 # Mensageria
+│   └── dockerfile            # Imagem do RabbitMQ com painel de gestao
+├── consumer/                 # Servico Consumidor (Worker em background)
+│   ├── dockerfile            # Dockerfile do worker
+│   ├── requirements.txt      # Dependencias do consumidor (pika)
+│   └── worker.py             # Processador de mensagens das 2 filas
 ├── tests/                    # Suite de testes automatizados
 │   └── test_gateway.py       # Testes de Rate Limit e Load Balancer
 ├── docker-compose.yml        # Orquestrador multi-container com healthchecks
@@ -75,14 +90,17 @@ pip install pytest
 
 ## Como Executar o Projeto (Docker Compose)
 
-O projeto sobe 4 conteineres (`mongodb`, `api1`, `api2` e `gateway`) com **healthchecks** automaticos:
+O projeto sobe 6 conteineres (`mongodb`, `rabbitmq`, `api1`, `api2`, `consumer` e `gateway`) com **healthchecks** automaticos:
 
 ```bash
 # Construir as imagens e iniciar todos os servicos em segundo plano
 docker compose up --build -d
 
-# Acompanhar logs em tempo real
+# Acompanhar logs em tempo real de todos os servicos
 docker compose logs -f
+
+# Acompanhar apenas o processamento das mensagens no Worker/Consumer
+docker compose logs -f consumer
 
 # Parar todos os servicos
 docker compose down
@@ -92,7 +110,10 @@ docker compose down
 
 - **API Gateway (Nginx):** `http://localhost` (Porta 80)
 - **Documentacao Swagger UI:** `http://localhost/docs`
+- **Painel de Gestao RabbitMQ:** `http://localhost:15672` (login: `guest`, senha: `guest`)
+- **Porta AMQP RabbitMQ:** `localhost:5672`
 - **MongoDB:** `localhost:27017`
+
 
 ---
 
@@ -220,3 +241,21 @@ Divisao de carga entre as instancias:
 ==============================================================
 PASSED
 ```
+
+---
+
+### 4. Testes Automatizados de Mensageria (Pytest)
+
+Criamos uma suite completa de testes em `tests/test_messaging.py` que valida a mensageria assíncrona:
+
+1. **`test_filas_existem_e_possuem_consumidores`**: Valida a existência das filas `fila_auditoria` e `fila_notificacoes` e confirma que o contêiner `worker_consumer` está conectado escutando-as.
+2. **`test_producer_publicacao_direta_persistente`**: Testa o envio de mensagens pelo `publicar_mensagem` comprovando a persistência (`delivery_mode=2`).
+3. **`test_fluxo_completo_api_mensageria_e_consumer`**: Executa um ciclo completo de vida (POST -> PUT -> DELETE) via Gateway e valida se o Worker consumiu e logou cada evento correspondente.
+4. **`test_rabbitmq_management_api`**: Consulta a API HTTP do painel do RabbitMQ (porta 15672) verificando a saúde do broker.
+
+**Como executar:**
+
+```bash
+pytest -v tests/test_messaging.py
+```
+
