@@ -132,10 +132,12 @@ docker compose down
 
 ## Como Fazer os Testes
 
+para testar o rabbit mq tem que fazer posts pelo swagger/ postman
+
 ### 1. Teste Interativo pelo Navegador (Swagger / Docs)
 
 Com os conteineres ligados, abra no navegador:  
-**http://localhost/docs**
+**http://localhost:8080/docs**
 
 **Passo a passo para testar uma rota:**
 
